@@ -95,12 +95,12 @@ pub enum ManifestError {
 }
 
 pub fn read_manifest_from_str(string: &str) -> Result<Manifest, ManifestError> {
-    let manifest: Manifest = serde_json::from_str(&string)?;
-    return Ok(manifest);
+    let manifest: Manifest = serde_json::from_str(string)?;
+    Ok(manifest)
 }
 
 pub fn read_manifest_from_file(file: &str) -> Result<Manifest, ManifestError> {
     let raw = fs::read_to_string(file)?;
     let manifest: Manifest = read_manifest_from_str(&raw)?;
-    return Ok(manifest);
+    Ok(manifest)
 }

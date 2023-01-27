@@ -41,7 +41,7 @@ impl ClientDownloader {
             .send()?;
 
         let data: LauncherManifest = serde_json::from_reader(response)?;
-        return Ok(data);
+        Ok(data)
     }
 
     pub fn get_list_versions(&self) -> Vec<LauncherManifestVersion> {
@@ -79,8 +79,7 @@ impl ClientDownloader {
 
         for lib in manifest.libraries {
             let artifact = lib.downloads.artifact;
-            if artifact.is_some() {
-                let download = artifact.unwrap();
+            if let Some(download) = artifact {
                 let path = download.path.unwrap();
                 let final_path = main_dir
                     .join("libraries")
