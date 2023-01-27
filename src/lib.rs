@@ -28,10 +28,11 @@ pub struct ClientDownloader {
 }
 
 impl ClientDownloader {
-    pub fn new() -> Self {
-        Self {
-            main_manifest: Self::init().unwrap(),
-        }
+
+    pub fn new() -> Result<Self, ClientDownloaderError> {
+        Ok(Self {
+            main_manifest: Self::init()?,
+        })
     }
 
     pub fn init() -> Result<LauncherManifest, ClientDownloaderError> {
