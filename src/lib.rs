@@ -45,13 +45,10 @@ impl ClientDownloader {
     }
 
     pub fn get_version(&self, id: String) -> Option<&LauncherManifestVersion> {
-        for version in &self.main_manifest.versions {
-            if version.id == id {
-                return Some(&version);
-            }
-        }
-
-        return None;
+        self.main_manifest
+            .versions
+            .iter()
+            .find(|v| v.id.eq_ignore_ascii_case(&id))
     }
 
     pub fn download_file(&self, path: &str, url: &str) {
