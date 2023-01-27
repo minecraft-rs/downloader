@@ -44,6 +44,10 @@ impl ClientDownloader {
         return Ok(data);
     }
 
+    pub fn get_list_versions(&self) -> Vec<LauncherManifestVersion> {
+        self.main_manifest.versions.clone()
+    }
+
     pub fn get_version(&self, id: String) -> Option<&LauncherManifestVersion> {
         self.main_manifest
             .versions
