@@ -54,10 +54,8 @@ impl ClientDownloader {
         return None;
     }
 
-    pub fn download_file(&self, path: String, url: String) {
-        println!("");
-        println!("Saved file {}", path);
-        println!("From {}", url);
+    pub fn download_file(&self, path: &str, url: &str) {
+        println!("\nSaved file {path}\nFrom {url}");
     }
 
     pub fn download_by_manifest(
@@ -76,7 +74,7 @@ impl ClientDownloader {
             .unwrap()
             .to_string();
 
-        self.download_file(jar_file, manifest.downloads.client.url);
+        self.download_file(&jar_file, &manifest.downloads.client.url);
 
         for lib in manifest.libraries {
             let artifact = lib.downloads.artifact;
@@ -88,9 +86,8 @@ impl ClientDownloader {
                     .join(path)
                     .to_str()
                     .unwrap()
-                    .to_string()
-                    .replace("/", "\\");
-                self.download_file(final_path, download.url);
+                    .to_string();
+                self.download_file(&final_path, &download.url);
             }
         }
 
