@@ -1,11 +1,14 @@
 pub mod launcher_manifest;
 pub mod manifest;
+pub mod progress;
 
+use std::fs::File;
+use std::io;
 use std::path::Path;
 
 use launcher_manifest::{LauncherManifest, LauncherManifestVersion};
 use manifest::Manifest;
-use reqwest::blocking::Client;
+use reqwest::blocking::{get, Client};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -54,10 +57,12 @@ impl ClientDownloader {
         return None;
     }
 
-    pub fn download_file(&self, path: String, url: String) {
-        println!("");
-        println!("Saved file {}", path);
-        println!("From {}", url);
+    fn download_file(&self, path: &String, url: String) {
+        let resp = get(url).expect("request failed");
+        let body = resp.text().expect("body invalid");
+        let mut out = File::create(path).expect("failed to create file");
+        io::copy(&mut body.as_bytes(), &mut out).expect("failed to copy content");
+        println!("Downloaded {}", path);
     }
 
     pub fn download_by_manifest(
@@ -76,7 +81,7 @@ impl ClientDownloader {
             .unwrap()
             .to_string();
 
-        self.download_file(jar_file, manifest.downloads.client.url);
+        self.download_file(&jar_file, manifest.downloads.client.url);
 
         for lib in manifest.libraries {
             let artifact = lib.downloads.artifact;
@@ -90,7 +95,7 @@ impl ClientDownloader {
                     .unwrap()
                     .to_string()
                     .replace("/", "\\");
-                self.download_file(final_path, download.url);
+                self.download_file(&final_path, download.url);
             }
         }
 
