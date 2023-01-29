@@ -1,11 +1,14 @@
 pub mod launcher_manifest;
 pub mod manifest;
+pub mod progress;
 
+use std::fs::File;
+use std::io;
 use std::path::Path;
 
 use launcher_manifest::{LauncherManifest, LauncherManifestVersion};
 use manifest::Manifest;
-use reqwest::blocking::Client;
+use reqwest::blocking::{get, Client};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -56,8 +59,12 @@ impl ClientDownloader {
             .find(|v| v.id.eq_ignore_ascii_case(&id))
     }
 
-    pub fn download_file(&self, path: &str, url: &str) {
-        println!("\nSaved file {path}\nFrom {url}");
+    fn download_file(&self, path: &str, url: &str) {
+        let resp = get(url).expect("request failed");
+        let body = resp.text().expect("body invalid");
+        let mut out = File::create(path).expect("failed to create file");
+        io::copy(&mut body.as_bytes(), &mut out).expect("failed to copy content");
+        println!("Downloaded {}", path);
     }
 
     pub fn download_by_manifest(
