@@ -2,6 +2,7 @@ use crate::error::{ClientDownloaderError, DownloadError};
 use crate::launcher_manifest::{LauncherManifest, LauncherManifestVersion};
 use crate::manifest::Manifest;
 use reqwest::blocking::Client;
+use serde_json::Value;
 
 use std::path::PathBuf;
 
@@ -106,7 +107,7 @@ impl DownloadVersion for ClientDownloader {
         dir: &str,
         progress: Progress,
     ) -> Result<Vec<DownloadResult>, ClientDownloaderError> {
-        let _client = Client::new();
+        let client = Client::new();
         let mut downloads: Vec<DownloadData> = Vec::new();
         let path = PathBuf::from(dir);
         // Add client to download
@@ -123,10 +124,37 @@ impl DownloadVersion for ClientDownloader {
             });
         }
 
-        // @TODO: add assetIndex to downloads
+        // Add assetIndex to downloads
         {
             let mut path = path.clone();
             path.push("assets");
+
+            let response = client.get(manifest.asset_index.url).send()?;
+
+            let data: Value = serde_json::from_reader(response)?;
+            let object = data.get("objects").unwrap().as_object().unwrap();
+            downloads.extend(
+                object
+                    .iter()
+                    .map(|(p, obj)| {
+                        let mut path = path.clone();
+                        path.push(p.clone());
+                        let hash = obj.get("hash").unwrap().as_str().unwrap();
+                        let size = obj.get("size").unwrap().as_u64().unwrap();
+                        DownloadData {
+                            url: format!(
+                                "https://resources.download.minecraft.net/{}/{}",
+                                hash[..2].to_string(),
+                                hash
+                            ),
+                            file_name: p.clone(),
+                            output_path: path.to_str().unwrap().to_string(),
+                            sha1: hash.to_string(),
+                            total_size: size,
+                        }
+                    })
+                    .collect::<Vec<DownloadData>>(),
+            );
         }
 
         // Add libraries to download
