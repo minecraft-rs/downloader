@@ -3,10 +3,18 @@ name = "mc_downloader"
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
+async-trait = "0.1.64"
+digest = "0.10.6"
+futures = "0.3"
 reqwest = { version = "0.11.13", features = ["blocking", "json"] }
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.91"
+sha1 = "0.10.5"
 thiserror = "1.0.38"
+tokio = { version = "1.25.0", features = ["rt-multi-thread", "time", "rt"] }
+
+[dev-dependencies]
+hex-literal = "0.3.4"
+pbr = "1.0.4"
+stringreader = "0.1.1"
