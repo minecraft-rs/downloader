@@ -1,5 +1,5 @@
 use std::{
-    env,
+    env::args,
     io::Stdout,
     sync::{
         atomic::{AtomicU64, Ordering},
@@ -18,17 +18,16 @@ struct ProgressTrack {
 
 fn main() {
     println!("Start Minecraft Downloader");
-    let mut dir = env::current_dir().unwrap();
-    dir.push(".minecraft");
+    // We received the path where the minecraft versions will be downloaded
+    // from the command line as first parameter
+    let args = args().collect::<Vec<String>>();
+    let default_path = "./.minecraft".to_string();
+    let path = args.get(1).unwrap_or(&default_path);
     match ClientDownloader::new() {
         Ok(downloader) => {
-            println!("Start Download Minecraft 1.19.3 version");
+            println!("Start Download Minecraft 1.19.3 version in {path}");
             downloader
-                .download_version(
-                    "1.19.3",
-                    dir.to_str().unwrap(),
-                    Arc::new(ProgressTrack::default()),
-                )
+                .download_version("1.19.3", path, Arc::new(ProgressTrack::default()))
                 .unwrap();
         }
         Err(e) => println!("{e:?}"),
