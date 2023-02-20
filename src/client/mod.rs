@@ -2,7 +2,7 @@ mod client_downloader;
 mod downloader;
 mod verify;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 pub use client_downloader::*;
 pub use downloader::*;
@@ -24,15 +24,15 @@ pub struct DownloadOutput {
 }
 
 /// A Progress reporter to use for the `Download`
-pub type Progress = std::sync::Arc<dyn Reporter>;
+pub type Progress = Arc<Mutex<dyn Reporter>>;
 
 /// An interface for `ProgressReporter`s
 pub trait Reporter: Send + Sync {
-    fn setup(&self, max_progress: u64);
+    fn setup(&mut self, _max_progress: u64) {}
     /// Report progress
-    fn progress(&self, current: u64);
+    fn progress(&mut self, _current: u64) {}
     /// Finish up after progress reporting is done
-    fn done(&self);
+    fn done(&mut self) {}
 }
 
 pub trait DownloadVersion {
@@ -40,20 +40,20 @@ pub trait DownloadVersion {
         &self,
         _version_id: &str,
         _dir: &str,
-        _progress: Progress,
+        _progress: Option<Progress>,
     ) -> Result<Vec<DownloadResult>, ClientDownloaderError>;
 
     fn download_by_manifest(
         &self,
         _manifest: Manifest,
         _dir: &str,
-        _progress: Progress,
+        _progress: Option<Progress>,
     ) -> Result<Vec<DownloadResult>, ClientDownloaderError>;
 }
 
 pub trait DownloadJava {
     fn check_version(&self, _root_path: &str, _expected_version: &str) -> bool;
-    fn download_java(&self, _root_path: &str, _version: &str, _progress: Progress);
+    fn download_java(&self, _root_path: &str, _version: &str, _progress: Option<Progress>);
 }
 
 fn download_result_to_fmt(

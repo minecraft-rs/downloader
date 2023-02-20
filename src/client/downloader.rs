@@ -28,7 +28,6 @@ pub struct DownloaderService {
     parallel_requests: u16,
     retries: u16,
     download_folder: PathBuf,
-    progress: Option<Progress>,
 }
 
 fn file_name_from_url(url: &str) -> std::path::PathBuf {
@@ -58,7 +57,7 @@ async fn download_url(
             if writer.write_all(&bytes).is_err() {}
 
             current += bytes.len() as u64;
-            progress.progress(bytes.len() as u64);
+            progress.lock().unwrap().progress(bytes.len() as u64);
         }
 
         response.status().as_u16()
@@ -186,7 +185,6 @@ impl Default for DownloaderService {
             parallel_requests: 32,
             retries: 3,
             download_folder: Default::default(),
-            progress: None,
         }
     }
 }
@@ -219,17 +217,12 @@ impl DownloaderService {
         self
     }
 
-    pub fn with_progress(&mut self, progress: Progress) -> &mut Self {
-        self.progress = Some(progress);
-        self
-    }
-
     pub fn with_download_folder(&mut self, download_folder: PathBuf) -> &mut Self {
         self.download_folder = download_folder;
         self
     }
 
-    pub fn run(&self) -> Result<Vec<DownloadResult>, JoinError> {
+    pub fn run(&self, progress: Option<Progress>) -> Result<Vec<DownloadResult>, JoinError> {
         let rt = tokio::runtime::Runtime::new().unwrap();
         let cl = self.client.clone();
         let max = self
@@ -244,15 +237,15 @@ impl DownloaderService {
         let downloads = self.downloads.clone();
         let retries = self.retries;
         let parallel_requests = self.parallel_requests;
-        let progress = self.progress.clone();
+        let progress = progress.clone();
 
         if progress.is_some() {
-            progress.as_ref().unwrap().setup(max);
+            progress.as_ref().unwrap().lock().unwrap().setup(max);
         }
 
         let result = rt.spawn(async move {
+            let progress = progress.clone();
             let res = {
-                let progress = progress.clone();
                 stream::iter(downloads)
                     .map(|d| {
                         download(
@@ -269,7 +262,7 @@ impl DownloaderService {
             };
 
             if progress.is_some() {
-                progress.as_ref().unwrap().done();
+                progress.unwrap().lock().unwrap().done();
             }
             res
         });

@@ -11,7 +11,7 @@ use super::{
 };
 
 pub struct ClientDownloader {
-    main_manifest: LauncherManifest,
+    pub main_manifest: LauncherManifest,
 }
 
 impl ClientDownloader {
@@ -51,7 +51,7 @@ impl DownloadJava for ClientDownloader {
         path.exists() && path.is_dir()
     }
 
-    fn download_java(&self, root_path: &str, version: &str, progress: Progress) {
+    fn download_java(&self, root_path: &str, version: &str, progress: Option<Progress>) {
         if !self.check_version(root_path, version) {
             let os = std::env::consts::OS;
             let arch = std::env::consts::ARCH;
@@ -68,8 +68,7 @@ impl DownloadJava for ClientDownloader {
             }];
             DownloaderService::new(root_path)
                 .with_downloads(downloads)
-                .with_progress(progress)
-                .run()
+                .run(progress)
                 .unwrap();
         }
     }
@@ -80,7 +79,7 @@ impl DownloadVersion for ClientDownloader {
         &self,
         version_id: &str,
         dir: &str,
-        progress: Progress,
+        progress: Option<Progress>,
     ) -> Result<Vec<DownloadResult>, ClientDownloaderError> {
         if dir.is_empty() {
             return Err(ClientDownloaderError::NoSuchLibrary);
@@ -105,7 +104,7 @@ impl DownloadVersion for ClientDownloader {
         &self,
         manifest: Manifest,
         dir: &str,
-        progress: Progress,
+        progress: Option<Progress>,
     ) -> Result<Vec<DownloadResult>, ClientDownloaderError> {
         let client = Client::new();
         let mut downloads: Vec<DownloadData> = Vec::new();
@@ -184,9 +183,8 @@ impl DownloadVersion for ClientDownloader {
         }
 
         let results = DownloaderService::new(dir)
-            .with_progress(progress)
             .with_downloads(downloads)
-            .run()
+            .run(progress)
             .unwrap();
 
         if results.is_empty() {

@@ -3,7 +3,7 @@ use std::{
     io::Stdout,
     sync::{
         atomic::{AtomicU64, Ordering},
-        Arc, Mutex,
+        Mutex, Arc,
     },
 };
 
@@ -27,7 +27,7 @@ fn main() {
         Ok(downloader) => {
             println!("Start Download Minecraft 1.19.3 version in {path}");
             downloader
-                .download_version("1.19.3", path, Arc::new(ProgressTrack::default()))
+                .download_version("1.19.3", path, Some(Arc::new(Mutex::new(ProgressTrack::default()))))
                 .unwrap();
         }
         Err(e) => println!("{e:?}"),
@@ -45,7 +45,7 @@ impl Default for ProgressTrack {
 }
 
 impl Reporter for ProgressTrack {
-    fn setup(&self, max_progress: u64) {
+    fn setup(&mut self, max_progress: u64) {
         self.total.store(max_progress, Ordering::SeqCst);
         let mut pb = self.pb.lock().unwrap();
         *pb = ProgressBar::new(max_progress);
@@ -57,7 +57,7 @@ impl Reporter for ProgressTrack {
         );
     }
 
-    fn progress(&self, current: u64) {
+    fn progress(&mut self, current: u64) {
         let mut curr = self.curr.load(Ordering::SeqCst);
         curr += current;
         self.curr.store(curr, Ordering::SeqCst);
@@ -66,7 +66,7 @@ impl Reporter for ProgressTrack {
         pb.set(curr);
     }
 
-    fn done(&self) {
+    fn done(&mut self) {
         let mut pb = self.pb.lock().unwrap();
         pb.finish();
         println!("\nDone!! Download Finish");
