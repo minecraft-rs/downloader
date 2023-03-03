@@ -94,10 +94,17 @@ impl DownloadVersion for ClientDownloader {
         let version = version_option.unwrap();
         let response = client.get(&version.url).send()?;
         let data: Manifest = response.json()?;
-        let mut path = PathBuf::from(dir);
-        path.push("versions");
-        path.push(version_id);
-        self.download_by_manifest(data, path.to_str().unwrap(), progress)
+        {
+            let response = client.get(&version.url).send()?;
+            let response_str = response.text()?;
+            let mut path = PathBuf::from(dir);
+            path.push("versions");
+            path.push(version_id.clone());
+            std::fs::create_dir_all(&path)?;
+            path.push(&format!("{}.json", version_id));
+            std::fs::write(path, response_str)?;
+        }
+        self.download_by_manifest(data, dir.clone(), progress)
     }
 
     fn download_by_manifest(
@@ -112,12 +119,15 @@ impl DownloadVersion for ClientDownloader {
         // Add client to download
         {
             let mut path = path.clone();
+            path.push("versions");
+            path.push(manifest.id.as_str());
             let file_name = format!("{}.jar", manifest.id);
             path.push(&file_name);
+            let path = path.to_str().unwrap();
             downloads.push(DownloadData {
                 url: manifest.downloads.client.url,
                 file_name: file_name.clone(),
-                output_path: file_name,
+                output_path: path.to_string(),
                 sha1: manifest.downloads.client.sha1,
                 total_size: manifest.downloads.client.size,
             });
@@ -190,16 +200,6 @@ impl DownloadVersion for ClientDownloader {
         if results.is_empty() {
             return Err(ClientDownloaderError::Download(
                 DownloadError::DownloadDefinition("No Downloaded files".to_string()),
-            ));
-        }
-
-        let (_, failures): (Vec<_>, Vec<_>) = results.iter().partition(|r| r.is_ok());
-
-        if failures.len() as f64 > results.len() as f64 * 0.5f64 {
-            return Err(ClientDownloaderError::Download(
-                DownloadError::DownloadDefinition(
-                    "More than 50% of download files have errors".to_string(),
-                ),
             ));
         }
 

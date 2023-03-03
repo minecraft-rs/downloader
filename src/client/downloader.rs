@@ -1,6 +1,5 @@
 use futures::stream::{self, StreamExt};
 use reqwest::Client;
-use sha1::Sha1;
 use std::fs::create_dir_all;
 use std::io::{Seek, SeekFrom, Write};
 use std::path::PathBuf;
@@ -73,23 +72,31 @@ async fn download(
     download_folder: PathBuf,
     progress: Option<Progress>,
 ) -> Result<DownloadOutput, DownloadError> {
+    let mut download_successful = false;
+    let mut output_path = download_folder.clone();
+    output_path.push(download.output_path);
+
     let mut result = DownloadOutput {
         status: reqwest::StatusCode::OK.as_u16(),
         // @TODO
         file_name: download.file_name.clone(),
-        file_path: PathBuf::from(download.output_path.clone()),
+        file_path: output_path.clone(),
         verified: VerifyStatus::NotVerified,
     };
 
-    let mut download_successful = false;
-    let mut output_path = download_folder.clone();
-    output_path.push(download.output_path);
+    if output_path.exists() && output_path.is_file() {
+        if let Ok(metadata) = output_path.metadata() {
+            if metadata.len() == download.total_size {
+                return Ok(result);
+            }
+        }
+    }
 
     create_dir_all(output_path.parent().unwrap())
         .map_err(|e| DownloadError::Setup(e.to_string()))?;
 
     if let Ok(file) = std::fs::OpenOptions::new()
-        .create_new(true)
+        .create(true)
         .write(true)
         .open(output_path)
     {
@@ -120,16 +127,15 @@ async fn download(
     }
 
     result.verified = if !download.sha1.is_empty() {
-        // @FIX: verification system
-        verify::verify_file::<Sha1>(download.sha1.into_bytes(), result.file_path.clone())
+        verify::verify_file(download.sha1.as_str(), result.file_path.clone())
     } else {
         VerifyStatus::Ok
     };
 
     // Ignoring verification
-    // if result.verified == VerifyStatus::Failed {
-    //     return Err(DownloadError::Verification(result));
-    // }
+    if result.verified == VerifyStatus::Failed {
+        return Err(DownloadError::Verification(result));
+    }
 
     Ok(result)
 }

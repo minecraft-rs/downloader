@@ -1,7 +1,6 @@
-use std::{
-    io::{BufReader, Read},
-    path::PathBuf,
-};
+use std::path::PathBuf;
+
+use chksum::{hash::sha1::Digest, prelude::HashDigest, Chksum};
 
 #[derive(Clone, Default, Debug, Eq, PartialEq)]
 pub enum VerifyStatus {
@@ -28,69 +27,22 @@ impl std::fmt::Display for VerifyStatus {
     }
 }
 
-pub fn verify_file<D: digest::Digest>(hash: Vec<u8>, path: PathBuf) -> VerifyStatus {
-    if let Ok(file) = std::fs::OpenOptions::new().read(true).open(&path) {
-        let mut reader = std::io::BufReader::with_capacity(1024 * 1024, file);
-        return verify_raw::<D>(hash, &mut reader);
+pub fn verify_file(hash: &str, path: PathBuf) -> VerifyStatus {
+    if let Ok(mut file) = std::fs::OpenOptions::new().read(true).open(&path) {
+        return match file.chksum(chksum::prelude::HashAlgorithm::SHA1) {
+            Ok(digest) => match Digest::try_from(hash) {
+                Ok(expected) => {
+                    if digest == HashDigest::SHA1(expected) {
+                        VerifyStatus::Ok
+                    } else {
+                        VerifyStatus::Failed
+                    }
+                }
+                Err(_) => VerifyStatus::Failed,
+            },
+            Err(_) => VerifyStatus::Failed,
+        };
     }
 
     VerifyStatus::Failed
-}
-
-pub fn verify_raw<D: digest::Digest>(
-    hash: Vec<u8>,
-    reader: &mut BufReader<impl Read>,
-) -> VerifyStatus {
-    let mut hasher = D::new();
-
-    let mut buffer = [0_u8; 1024 * 1024];
-    while let Ok(n) = reader.read(&mut buffer[..]) {
-        if n == 0 {
-            break;
-        }
-
-        hasher.update(&buffer[..n]);
-    }
-
-    let result = hasher.finalize();
-
-    if result.len() != hash.len() {
-        return VerifyStatus::Failed;
-    }
-    for i in 0..result.len() {
-        if result[i] != hash[i] {
-            return VerifyStatus::Failed;
-        }
-    }
-    VerifyStatus::Ok
-}
-
-#[cfg(test)]
-mod tests {
-    use hex_literal::hex;
-    use sha1::Sha1;
-    use std::io::BufReader;
-    use stringreader::StringReader;
-
-    use super::{verify_raw, VerifyStatus};
-
-    #[test]
-    fn check_verify() {
-        let hash = hex!("661295c9cbf9d6b2f6428414504a8deed3020641").to_vec();
-        let mut reader = BufReader::new(StringReader::new("test string"));
-
-        let result = verify_raw::<Sha1>(hash, &mut reader);
-
-        assert_eq!(result, VerifyStatus::Ok);
-    }
-
-    #[test]
-    fn failed_verify() {
-        let hash = hex!("661295c9cbf9d6b2f6428414504a8deed3020641").to_vec();
-        let mut reader = BufReader::new(StringReader::new("test strin"));
-
-        let result = verify_raw::<Sha1>(hash, &mut reader);
-
-        assert_eq!(result, VerifyStatus::Failed);
-    }
 }

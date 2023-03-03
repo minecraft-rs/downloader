@@ -3,7 +3,7 @@ use std::{
     io::Stdout,
     sync::{
         atomic::{AtomicU64, Ordering},
-        Mutex, Arc,
+        Arc, Mutex,
     },
 };
 
@@ -22,12 +22,18 @@ fn main() {
     // from the command line as first parameter
     let args = args().collect::<Vec<String>>();
     let default_path = "./.minecraft".to_string();
+    let default_version = "1.19.3".to_string();
     let path = args.get(1).unwrap_or(&default_path);
+    let version = args.get(2).unwrap_or(&default_version);
     match ClientDownloader::new() {
         Ok(downloader) => {
-            println!("Start Download Minecraft 1.19.3 version in {path}");
+            println!("Start Download Minecraft {version} version in {path}");
             downloader
-                .download_version("1.19.3", path, Some(Arc::new(Mutex::new(ProgressTrack::default()))))
+                .download_version(
+                    version,
+                    path,
+                    Some(Arc::new(Mutex::new(ProgressTrack::default()))),
+                )
                 .unwrap();
         }
         Err(e) => println!("{e:?}"),
