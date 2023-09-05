@@ -196,9 +196,9 @@ impl Default for DownloaderService {
 }
 
 impl DownloaderService {
-    pub fn new(download_folder: &str) -> Self {
+    pub fn new(download_folder: PathBuf) -> Self {
         Self {
-            download_folder: PathBuf::from(download_folder),
+            download_folder: download_folder,
             ..Default::default()
         }
     }

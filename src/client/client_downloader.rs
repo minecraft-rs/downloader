@@ -60,13 +60,15 @@ impl DownloadJava for ClientDownloader {
                 _ => ".zip",
             };
             let downloads = vec![DownloadData {
-                url: format!("https://download.oracle.com/java/{version}/archive/jdk-{version}_{os}-{arch}_bin{ext}"),
+                url: format!(
+          "https://download.oracle.com/java/{version}/archive/jdk-{version}_{os}-{arch}_bin{ext}"
+        ),
                 file_name: format!("jdk-{version}{ext}"),
                 output_path: format!("jdk-{version}{ext}"),
                 sha1: String::new(),
                 total_size: 0,
             }];
-            DownloaderService::new(root_path)
+            DownloaderService::new(PathBuf::from(root_path))
                 .with_downloads(downloads)
                 .run(progress)
                 .unwrap();
@@ -78,12 +80,16 @@ impl DownloadVersion for ClientDownloader {
     fn download_version(
         &self,
         version_id: &str,
-        dir: &str,
+        game_path: &PathBuf,
+        manifest_path: Option<&PathBuf>,
+        version_path: Option<&PathBuf>,
         progress: Option<Progress>,
     ) -> Result<Vec<DownloadResult>, ClientDownloaderError> {
-        if dir.is_empty() {
-            return Err(ClientDownloaderError::NoSuchLibrary);
-        }
+        let version = game_path.clone().join("versions").join(version_id);
+        let manifest_path = manifest_path
+            .unwrap_or(&version.join(format!("{}.json", version_id)))
+            .clone();
+
         let client = Client::new();
         let version_option = self.get_version(version_id);
 
@@ -93,52 +99,82 @@ impl DownloadVersion for ClientDownloader {
 
         let version = version_option.unwrap();
         let response = client.get(&version.url).send()?;
-        let data: Manifest = response.json()?;
+        let manifest: Manifest = response.json()?;
         {
             let response = client.get(&version.url).send()?;
             let response_str = response.text()?;
-            let mut path = PathBuf::from(dir);
-            path.push("versions");
-            path.push(version_id.clone());
-            std::fs::create_dir_all(&path)?;
-            path.push(&format!("{}.json", version_id));
-            std::fs::write(path, response_str)?;
+            std::fs::create_dir_all(&game_path)?;
+            std::fs::create_dir_all(&manifest_path.parent().unwrap())?;
+            std::fs::write(manifest_path, response_str)?;
         }
-        self.download_by_manifest(data, dir.clone(), progress)
+
+        self.download_by_manifest(&manifest, game_path, version_path, progress)
     }
 
     fn download_by_manifest(
         &self,
-        manifest: Manifest,
-        dir: &str,
+        manifest: &Manifest,
+        game_path: &PathBuf,
+        version_path: Option<&PathBuf>,
         progress: Option<Progress>,
     ) -> Result<Vec<DownloadResult>, ClientDownloaderError> {
+        let version_path = version_path
+            .unwrap_or(
+                &game_path
+                    .join("versions")
+                    .join(manifest.clone().id)
+                    .join(format!("{}.jar", manifest.id)),
+            )
+            .clone();
+        std::fs::create_dir_all(&version_path.parent().unwrap())?;
+
         let client = Client::new();
         let mut downloads: Vec<DownloadData> = Vec::new();
-        let path = PathBuf::from(dir);
-        // Add client to download
+
+        // Add client
         {
-            let mut path = path.clone();
-            path.push("versions");
-            path.push(manifest.id.as_str());
-            let file_name = format!("{}.jar", manifest.id);
-            path.push(&file_name);
-            let path = path.to_str().unwrap();
             downloads.push(DownloadData {
-                url: manifest.downloads.client.url,
-                file_name: file_name.clone(),
-                output_path: path.to_string(),
-                sha1: manifest.downloads.client.sha1,
+                url: manifest.clone().downloads.client.url,
+                file_name: version_path
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+                output_path: version_path.as_path().to_str().unwrap().to_string(),
+                sha1: manifest.clone().downloads.client.sha1,
                 total_size: manifest.downloads.client.size,
             });
         }
 
-        // Add assetIndex to downloads
+        // Add asset index
         {
-            let mut path = path.clone();
+            let mut path = game_path.clone();
+            path.push("assets");
+            path.push("indexes");
+            path.push(format!("{}.json", manifest.asset_index.id));
+
+            let path = path.to_str().unwrap();
+            let size = manifest.asset_index.size as u64;
+
+            downloads.push(DownloadData {
+                url: manifest.asset_index.url.clone(),
+                file_name: format!("{}.json", manifest.asset_index.id),
+                output_path: path.to_string(),
+                sha1: manifest.clone().asset_index.sha1,
+                total_size: size,
+            });
+        }
+
+        // Add assets
+        {
+            let mut path = game_path.clone();
             path.push("assets");
 
-            let response = client.get(manifest.asset_index.url).send()?;
+            let mut objects_path = path.clone();
+            objects_path.push("objects");
+
+            let response = client.get(manifest.clone().asset_index.url).send()?;
 
             let data: Value = serde_json::from_reader(response)?;
             let object = data.get("objects").unwrap().as_object().unwrap();
@@ -146,10 +182,13 @@ impl DownloadVersion for ClientDownloader {
                 object
                     .iter()
                     .map(|(p, obj)| {
-                        let mut path = path.clone();
-                        path.push(p.clone());
                         let hash = obj.get("hash").unwrap().as_str().unwrap();
                         let size = obj.get("size").unwrap().as_u64().unwrap();
+
+                        let mut path = objects_path.clone();
+                        path.push(hash[..2].to_string());
+                        path.push(hash.to_string());
+
                         DownloadData {
                             url: format!(
                                 "https://resources.download.minecraft.net/{}/{}",
@@ -168,7 +207,7 @@ impl DownloadVersion for ClientDownloader {
 
         // Add libraries to download
         {
-            let mut path = path;
+            let mut path = game_path.to_path_buf();
             path.push("libraries");
             downloads.extend(
                 manifest
@@ -192,7 +231,7 @@ impl DownloadVersion for ClientDownloader {
             );
         }
 
-        let results = DownloaderService::new(dir)
+        let results = DownloaderService::new(game_path.parent().unwrap().to_path_buf())
             .with_downloads(downloads)
             .run(progress)
             .unwrap();

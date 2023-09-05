@@ -1,6 +1,7 @@
 use std::{
     env::args,
     io::Stdout,
+    path::PathBuf,
     sync::{
         atomic::{AtomicU64, Ordering},
         Arc, Mutex,
@@ -22,7 +23,7 @@ fn main() {
     // from the command line as first parameter
     let args = args().collect::<Vec<String>>();
     let default_path = "./.minecraft".to_string();
-    let default_version = "1.19.3".to_string();
+    let default_version = "1.19.4".to_string();
     let path = args.get(1).unwrap_or(&default_path);
     let version = args.get(2).unwrap_or(&default_version);
     match ClientDownloader::new() {
@@ -31,7 +32,9 @@ fn main() {
             downloader
                 .download_version(
                     version,
-                    path,
+                    &PathBuf::from(path),
+                    None,
+                    None,
                     Some(Arc::new(Mutex::new(ProgressTrack::default()))),
                 )
                 .unwrap();

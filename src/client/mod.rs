@@ -2,7 +2,10 @@ mod client_downloader;
 mod downloader;
 mod verify;
 
-use std::{path::PathBuf, sync::{Arc, Mutex}};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 pub use client_downloader::*;
 pub use downloader::*;
@@ -39,14 +42,17 @@ pub trait DownloadVersion {
     fn download_version(
         &self,
         _version_id: &str,
-        _dir: &str,
+        _game_path: &PathBuf,
+        _manifest_path: Option<&PathBuf>,
+        _version_path: Option<&PathBuf>,
         _progress: Option<Progress>,
     ) -> Result<Vec<DownloadResult>, ClientDownloaderError>;
 
     fn download_by_manifest(
         &self,
-        _manifest: Manifest,
-        _dir: &str,
+        _manifest: &Manifest,
+        _game_path: &PathBuf,
+        _version_path: Option<&PathBuf>,
         _progress: Option<Progress>,
     ) -> Result<Vec<DownloadResult>, ClientDownloaderError>;
 }

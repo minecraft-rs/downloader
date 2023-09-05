@@ -10,8 +10,8 @@ pub enum ClientDownloaderError {
     #[error("No such version")]
     NoSuchVersion,
 
-    #[error("No such library")]
-    NoSuchLibrary,
+    #[error("No such directory")]
+    NoSuchDirectory,
 
     #[error("{0}")]
     Request(#[from] reqwest::Error),
