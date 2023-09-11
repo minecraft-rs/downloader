@@ -2,6 +2,10 @@
 name = "mc_downloader"
 version = "0.1.0"
 edition = "2021"
+description = "A library for downloading Minecraft assets and libraries."
+license = "MIT"
+repository = "https://github.com/minecraft-rs/downloader"
+include = ["/src", "/examples"]
 
 [dependencies]
 async-trait = "0.1.64"
