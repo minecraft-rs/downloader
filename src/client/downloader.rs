@@ -47,7 +47,6 @@ async fn download_url(
     writer: &mut std::io::BufWriter<std::fs::File>,
     progress_opt: Option<Progress>,
 ) -> u16 {
-    let Some(progress) = progress_opt else { return reqwest::StatusCode::NOT_IMPLEMENTED.as_u16() };
     if let Ok(mut response) = client.get(&url).send().await {
         let mut current: u64 = 0;
         writer.seek(SeekFrom::Start(current)).unwrap_or(0);
@@ -56,7 +55,10 @@ async fn download_url(
             if writer.write_all(&bytes).is_err() {}
 
             current += bytes.len() as u64;
-            progress.lock().unwrap().progress(bytes.len() as u64);
+
+            if let Some(progress) = &progress_opt {
+                progress.lock().unwrap().progress(bytes.len() as u64);
+            }
         }
 
         response.status().as_u16()
